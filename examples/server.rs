@@ -8,17 +8,16 @@ async fn main() {
     println!("Server is running on {}", addr);
 
     loop {
-        if let Some((addr, msg)) = server.recv_messages().await {
-            println!("Received {:?} from {}", msg, addr);
-        }
-
         if let Some(event) = server.recv_events().await {
             match event {
-                ServerEvent::ClientConnected(addr) => {
-                    println!("Client connected: {}", addr);
+                ServerEvent::ClientConnected(_addr) => {
+                    //println!("Client connected: {}", addr);
                 }
-                ServerEvent::ClientDisconnected(addr) => {
-                    println!("Client disconnected: {}", addr);
+                ServerEvent::ClientDisconnected(_addr) => {
+                    unimplemented!();
+                }
+                ServerEvent::MessageReceived(_addr, _msg) => {
+                    //println!("Received {:?} from {}", msg, addr);
                 }
             }
         }
