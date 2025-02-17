@@ -1,8 +1,9 @@
 [package]
-name = "wrym_webtransport"
+name = "wrym_laminar"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+laminar = "0.5.0"
+tokio = "1.43.0"
 wrym = { path = "../" }
-wtransport = "0.5.0"

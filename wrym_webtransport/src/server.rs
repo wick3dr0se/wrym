@@ -1,8 +1,6 @@
 use std::collections::HashMap;
-use wrym::server::Transport;
-use wtransport::{Connection, Endpoint, Identity, ServerConfig};
-use wtransport::tls::{CertificateChain, PrivateKey};
-use async_trait::async_trait;
+use wrym::transport::{async_trait, Transport};
+use wtransport::{Connection, Endpoint, Identity, ServerConfig, tls::{CertificateChain, PrivateKey}};
 
 pub struct WebTransport {
     connections: HashMap<String, Connection>
@@ -31,9 +29,9 @@ impl WebTransport {
 
 #[async_trait]
 impl Transport for WebTransport {
-    async fn send_to(&self, msg: &[u8], addr: &str) {        
+    async fn send_to(&self, addr: &str, bytes: &[u8]) {        
         if let Some(conn) = self.connections.get(addr) {
-            conn.send_datagram(msg.to_vec()).unwrap();
+            conn.send_datagram(bytes.to_vec()).unwrap();
         }
     }
 
