@@ -1,24 +1,25 @@
 use wrym::server::{Server, ServerEvent};
+use wrym_udp::server::UdpTransport;
+//use wrym_webtransport::server::WebTransport;
 
 #[tokio::main]
 async fn main() {
-    let addr = "127.0.0.1:8080";
-    let mut server = Server::new(addr).await;
-    
-    println!("Server is running on {}", addr);
+    let transport = UdpTransport::new("127.0.0.1:8080");
+    //let transport = WebTransport::new("some_cert.file", "some_key.file").await;
+    let mut server = Server::new(transport);
 
     loop {
-        if let Some(event) = server.recv_events().await {
+        server.poll().await;
+
+        if let Some(event) = server.recv_event() {
             match event {
-                ServerEvent::ClientConnected(_addr) => {
-                    //println!("Client connected: {}", addr);
+                ServerEvent::ClientConnected(addr) => {
+                    println!("New connection from client {}", addr);
                 }
-                ServerEvent::ClientDisconnected(_addr) => {
-                    unimplemented!();
+                ServerEvent::MessageReceived(addr, msg) => {
+                    println!("Message received from client {}: {:?}", addr, msg);
                 }
-                ServerEvent::MessageReceived(_addr, _msg) => {
-                    //println!("Received {:?} from {}", msg, addr);
-                }
+                _ => {}
             }
         }
     }

@@ -1,126 +1,61 @@
-use std::{collections::HashSet, net::SocketAddr, sync::Arc};
+use std::{collections::{HashMap, VecDeque}, time::Instant};
+
 use bincode::{deserialize, serialize};
-use tokio::{net::UdpSocket, sync::{mpsc::{channel, Receiver, Sender}, Mutex}};
+use serde::{Deserialize, Serialize};
 
-use crate::{channel::RELIABLE_CHANNEL, message::MessageType};
+use async_trait::async_trait;
 
+#[async_trait]
+pub trait Transport: 'static + Send + Sync {
+    async fn send_to(&self, data: &[u8], addr: &str);
+    async fn recv(&mut self) -> Option<(Vec<u8>, String)>;
+}
+
+pub struct ClientData {
+    last_activity: Instant
+}
+
+#[derive(Serialize, Deserialize)]
 pub enum ServerEvent {
-    ClientConnected(SocketAddr),
-    ClientDisconnected(SocketAddr),
-    MessageReceived(SocketAddr, Vec<u8>)
+    ClientConnected(String),
+    ClientDisconnected(String),
+    MessageReceived(String, Vec<u8>)
 }
 
-pub struct Server {
-    socket: Arc<UdpSocket>,
-    clients: Arc<Mutex<HashSet<SocketAddr>>>,
-    event_tx: Sender<ServerEvent>,
-    event_rx: Receiver<ServerEvent>
+pub struct Server<T: Transport> {
+    transport: T,
+    clients: HashMap<String, ClientData>,
+    events: VecDeque<ServerEvent>
 }
 
-impl Server {
-    pub async fn new(addr: &str) -> Self {
-        let (event_tx, event_rx) = channel(32);
-        let socket = Arc::new(UdpSocket::bind(addr).await.unwrap());
-        let clients = Arc::new(Mutex::new(HashSet::new()));
-
-        let server = Self {
-            socket: socket.clone(),
-            clients: clients.clone(),
-            event_tx: event_tx.clone(),
-            event_rx
-        };
-
-        tokio::spawn(Self::poll(socket, clients, event_tx));
-
-        server
+impl<T: Transport> Server<T> {
+    pub fn new(transport: T) -> Self {        
+        Self {
+            transport,
+            clients: HashMap::new(),
+            events: VecDeque::new()
+        }
     }
 
-    async fn poll(
-        socket: Arc<UdpSocket>,
-        clients: Arc<Mutex<HashSet<SocketAddr>>>,
-        event_tx: Sender<ServerEvent>
-    ) {
-        let mut buf = [0; 1024];
-    
-        loop {
-            let socket = socket.clone();
-
-            if let Ok((len, addr)) = socket.recv_from(&mut buf).await {
-                let message = buf[..len].to_vec();
-                let mut clients = clients.lock().await;
-    
-                if !clients.contains(&addr) {
-                    clients.insert(addr);
-                    event_tx.send(ServerEvent::ClientConnected(addr)).await.unwrap();
-                    println!("[Server] Client connected: {}", addr);
-                }
-    
-                event_tx.send(ServerEvent::MessageReceived(addr, message.clone())).await.unwrap();
-                println!("[Server] Received message from {}: {:?}", addr, message);
-
-                Self::handle_received(socket, addr, message).await;
+    pub async fn poll(&mut self) {
+        if let Some((msg, addr)) = self.transport.recv().await {
+            if self.clients
+                .insert(addr.clone(), ClientData { last_activity: Instant::now() })
+                .is_none()
+            {
+                self.events.push_back(ServerEvent::ClientConnected(addr.clone()));
             }
+            
+            self.events
+                .push_back(ServerEvent::MessageReceived(addr, deserialize(&msg).unwrap()));
         }
     }
 
-    pub async fn handle_received(socket: Arc<UdpSocket>, addr: SocketAddr, msg: Vec<u8>) {
-        if let Ok(msg) = deserialize::<MessageType>(&msg) {
-            match msg {
-                MessageType::Unreliable(payload) => {
-                    println!("[Server] Unreliable payload from {}: {:?}", addr, payload);
-                }
-                MessageType::Reliable(payload, seq) => {
-                    let reliable_channel = RELIABLE_CHANNEL.read().await;
-    
-                    if reliable_channel.handle_reliable_message(addr, seq, payload.clone()).await.is_some() {
-                        println!("[Server] Reliable ordered payload from {}: {:?}", addr, payload);
-    
-                        let ack_packet = MessageType::Ack(seq);
-
-                        if let Ok(serialized_ack) = serialize(&ack_packet) {
-                            if let Err(e) = socket.send_to(&serialized_ack, addr).await {
-                                println!("[Server] Failed to send ACK to {}: {}", addr, e);
-                            } else {
-                                println!("[Server] Sent ACK for sequence {} to {}", seq, addr);
-                            }
-                        }
-                    }
-                }
-                MessageType::ReliableUnordered(payload, seq) => {
-                    println!("[Server] Reliable unordered payload from {}: {:?}", addr, payload);
-    
-                    let ack_packet = MessageType::Ack(seq);
-                    
-                    if let Ok(serialized_ack) = serialize(&ack_packet) {
-                        if let Err(e) = socket.send_to(&serialized_ack, addr).await {
-                            println!("[Server] Failed to send ACK to {}: {}", addr, e);
-                        } else {
-                            println!("[Server] Sent ACK for sequence {} to {}", seq, addr);
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
+    pub fn recv_event(&mut self) -> Option<ServerEvent> {
+        self.events.pop_front()
     }
 
-    pub async fn recv_events(&mut self) -> Option<ServerEvent> {
-        self.event_rx.recv().await
-    }
-
-    pub async fn send_to(&self, addr: SocketAddr, message: &[u8]) {
-        self.socket.send_to(&message, addr).await.unwrap();
-    }
-
-    pub async fn broadcast(&self, message: &[u8]) {
-        for addr in self.clients.lock().await.iter() {
-            self.send_to(*addr, message).await;
-        }
-    }
-
-    pub async fn remove_client(&self, addr: SocketAddr) {
-        if self.clients.lock().await.remove(&addr) {
-            self.event_tx.send(ServerEvent::ClientDisconnected(addr)).await.unwrap();
-        }
+    pub async fn send_to(&self, addr: &str, msg: &[u8]) {
+        self.transport.send_to(&serialize(msg).unwrap(), addr).await;
     }
 }
