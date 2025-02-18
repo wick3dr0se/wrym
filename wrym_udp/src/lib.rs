@@ -21,11 +21,11 @@ impl Transport for UdpTransport {
         self.socket.send_to(bytes, addr).unwrap();
     }
 
-    async fn recv(&mut self) -> Option<(Vec<u8>, String)> {
+    async fn recv(&mut self) -> Option<(String, Vec<u8>)> {
         let mut buf = [0; 1024];
 
         if let Ok((len, addr)) = self.socket.recv_from(&mut buf) {
-            return Some((buf[..len].to_vec(), addr.to_string()));
+            return Some((addr.to_string(), buf[..len].to_vec()));
         }
 
         None

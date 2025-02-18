@@ -28,7 +28,7 @@ impl Transport for LaminarTransport {
         socket.manual_poll(Instant::now())
     }
 
-    async fn recv(&mut self) -> Option<(Vec<u8>, String)> {
+    async fn recv(&mut self) -> Option<(String, Vec<u8>)> {
         let socket = self.socket.clone();
 
         task::spawn(async move {
@@ -37,7 +37,7 @@ impl Transport for LaminarTransport {
 
         if let Some(event) = self.socket.lock().await.recv() {
             if let SocketEvent::Packet(packet) = event {
-                return Some((packet.payload().to_vec(), packet.addr().to_string()));
+                return Some((packet.addr().to_string(), packet.payload().to_vec()));
             }
         }
 

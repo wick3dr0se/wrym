@@ -1,22 +1,34 @@
+use std::collections::VecDeque;
+
 use crate::transport::{ReliableTransport, Transport};
+
+pub enum ClientEvent {
+    MessageReceived(Vec<u8>)
+}
 
 pub struct Client<T: Transport> {
     transport: T,
-    server_addr: String
+    server_addr: String,
+    events: VecDeque<ClientEvent>
 }
 
 impl<T: Transport> Client<T> {
     pub fn new(transport: T, server_addr: &str) -> Self {
         Self {
             transport,
-            server_addr: server_addr.to_string()
+            server_addr: server_addr.to_string(),
+            events: VecDeque::new()
         }
     }
 
     pub async fn poll(&mut self) {
-        if let Some(bytes) = self.transport.recv().await {
-            println!("Received message: {:?}", bytes);
+        if let Some((_addr, bytes)) = self.transport.recv().await {
+            self.events.push_back(ClientEvent::MessageReceived(bytes));
         }
+    }
+
+    pub fn recv_event(&mut self) -> Option<ClientEvent> {
+        self.events.pop_front()
     }
 
     pub async fn send(&self, bytes: &[u8]) {
