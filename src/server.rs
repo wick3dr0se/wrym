@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, VecDeque}, time::Instant};
+use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
 
 use crate::transport::Transport;
 
@@ -19,7 +19,7 @@ pub struct Server<T: Transport> {
 }
 
 impl<T: Transport> Server<T> {
-    pub fn new(transport: T) -> Self {        
+    pub fn new(transport: T) -> Self {
         Self {
             transport,
             clients: HashMap::new(),
@@ -27,15 +27,29 @@ impl<T: Transport> Server<T> {
         }
     }
 
-    pub async fn poll(&mut self) {
-        if let Some((bytes, addr)) = self.transport.recv().await {
-            if self.clients.insert(addr.clone(), ClientData { last_activity: Instant::now() }).is_none() {
-                self.events.push_back(ServerEvent::ClientConnected(addr.clone()));
+    fn drop_inactive_clients(&mut self, timeout: Duration) {
+        self.clients.retain(|addr, data| {
+            if Instant::now().duration_since(data.last_activity) > timeout {
+                self.events.push_back(ServerEvent::ClientDisconnected(addr.clone()));
+                
+                false
+            } else {
+                true
             }
-    
-            self.events.push_back(ServerEvent::MessageReceived(addr, bytes));
+        });
+    }
+
+    pub async fn poll(&mut self, timeout: Duration) {
+        self.drop_inactive_clients(timeout);
+
+        if let Some((addr, bytes)) = self.transport.recv().await {
+            if self.clients.insert(addr.to_string(), ClientData { last_activity: Instant::now() }).is_none() {
+                self.events.push_back(ServerEvent::ClientConnected(addr.to_string()));
+            }
+
+            self.events.push_back(ServerEvent::MessageReceived(addr.to_string(), bytes));
         }
-    }    
+    }
 
     pub fn recv_event(&mut self) -> Option<ServerEvent> {
         self.events.pop_front()
@@ -43,5 +57,11 @@ impl<T: Transport> Server<T> {
 
     pub async fn send_to(&self, addr: &str, bytes: &[u8]) {
         self.transport.send_to(addr, bytes).await;
+    }
+
+    pub async fn broadcast(&self, bytes: &[u8]) {
+        for addr in self.clients.keys() {
+            self.transport.send_to(addr, bytes).await;
+        }
     }
 }
