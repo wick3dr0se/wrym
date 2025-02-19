@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Instant};
 
 use wrym_transport::{async_trait, ReliableTransport, Transport};
 use laminar::{Packet, Socket, SocketEvent};
-use tokio::{sync::Mutex, task::spawn};
+use tokio::{sync::Mutex, task::spawn_blocking};
 
 pub struct LaminarTransport {
     socket: Arc<Mutex<Socket>>
@@ -10,8 +10,7 @@ pub struct LaminarTransport {
 
 impl LaminarTransport {
     pub fn new(bind_addr: &str) -> Self {
-        let socket = Socket::bind(bind_addr).unwrap();
-        let socket = Arc::new(Mutex::new(socket));
+        let socket = Arc::new(Mutex::new(Socket::bind(bind_addr).unwrap()));
 
         Self { socket }
     }
@@ -23,27 +22,25 @@ impl Transport for LaminarTransport {
         let addr = addr.parse().unwrap();
         let packet = Packet::unreliable(addr, bytes.to_vec());
         let mut socket = self.socket.lock().await;
-        
+
         socket.send(packet).unwrap();
-        socket.manual_poll(Instant::now())
     }
 
     async fn recv(&mut self) -> Option<(String, Vec<u8>)> {
         let socket = self.socket.clone();
 
-        spawn(async move {
-            socket.lock().await.manual_poll(Instant::now());
-        });
+        socket.lock().await.manual_poll(Instant::now());
 
-        if let Some(event) = self.socket.lock().await.recv() {
-            if let SocketEvent::Packet(packet) = event {
-                return Some((packet.addr().to_string(), packet.payload().to_vec()));
+        spawn_blocking(move || {
+            while let Some(event) = socket.blocking_lock().recv() {
+                if let SocketEvent::Packet(packet) = event {
+                    return Some((packet.addr().to_string(), packet.payload().to_vec()));
+                }
             }
-        }
 
-        None
+            None
+        }).await.unwrap_or(None)
     }
-
 }
 
 #[async_trait]
@@ -58,6 +55,5 @@ impl ReliableTransport for LaminarTransport {
         let mut socket = self.socket.lock().await;
         
         socket.send(packet).unwrap();
-        socket.manual_poll(Instant::now());
     }
 }
