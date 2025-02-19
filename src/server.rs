@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
 
-use crate::transport::Transport;
+use wrym_transport::{ReliableTransport, Transport};
 
 pub struct ClientData {
     last_activity: Instant
@@ -62,6 +62,18 @@ impl<T: Transport> Server<T> {
     pub async fn broadcast(&self, bytes: &[u8]) {
         for addr in self.clients.keys() {
             self.transport.send_to(addr, bytes).await;
+        }
+    }
+}
+
+impl<T: Transport + ReliableTransport> Server<T> {
+    pub async fn send_reliable_to(&self, addr: &str, bytes: &[u8], ordered: bool) {
+        self.transport.send_reliable_to(addr, bytes, ordered).await;
+    }
+
+    pub async fn broadcast_reliable(&self, bytes: &[u8], ordered: bool) {
+        for addr in self.clients.keys() {
+            self.transport.send_reliable_to(addr, bytes, ordered).await
         }
     }
 }

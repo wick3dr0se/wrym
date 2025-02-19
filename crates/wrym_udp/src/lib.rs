@@ -1,6 +1,6 @@
 use std::net::UdpSocket;
 
-use wrym::transport::{async_trait, Transport};
+use wrym_transport::{async_trait, Transport};
 
 pub struct UdpTransport {
     socket: UdpSocket

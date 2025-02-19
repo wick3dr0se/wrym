@@ -1,24 +1,33 @@
 use std::time::Duration;
 
 use bincode::{deserialize, serialize};
+use tokio::time::sleep;
 use wrym::server::{Server, ServerEvent};
-//use wrym_udp::UdpTransport;
+#[cfg(feature = "udp")]
+use wrym_udp::UdpTransport;
+#[cfg(feature = "laminar")]
 use wrym_laminar::LaminarTransport;
-//use wrym_webtransport::server::WebTransport;
+#[cfg(feature = "webtransport")]
+use wrym_webtransport::server::WebTransport;
 
 const SERVER_ADDR: &str = "127.0.0.1:8080";
 
 #[tokio::main]
 async fn main() {
-    //let transport = UdpTransport::new(SERVER_ADDR);
+    #[cfg(feature = "udp")]
+    let transport = UdpTransport::new(SERVER_ADDR);
+    #[cfg(feature = "laminar")]
     let transport = LaminarTransport::new(SERVER_ADDR);
-    //let transport = WebTransport::new("some_cert.file", "some_key.file").await;
+    #[cfg(feature = "webtransport")]
+    let transport = WebTransport::new("some_cert.file", "some_key.file").await;
+
     let mut server = Server::new(transport);
 
     println!("Server is running on {}", SERVER_ADDR);
 
     loop {
         server.poll(Duration::from_secs(60)).await;
+        sleep(Duration::from_millis(10)).await;
 
         if let Some(event) = server.recv_event() {
             match event {

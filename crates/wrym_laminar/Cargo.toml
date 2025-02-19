@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 laminar = "0.5.0"
 tokio = "1.43.0"
-wrym = { path = "../" }
+
+wrym_transport = { path = "../wrym_transport" }

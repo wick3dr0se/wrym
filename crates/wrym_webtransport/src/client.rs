@@ -1,4 +1,4 @@
-use wrym::transport::{async_trait, Transport};
+use wrym_transport::{async_trait, Transport};
 use wtransport::{ClientConfig, Connection, Endpoint};
 
 pub struct WebTransport {

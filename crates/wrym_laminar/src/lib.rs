@@ -1,8 +1,8 @@
 use std::{sync::Arc, time::Instant};
 
-use wrym::transport::{async_trait, ReliableTransport, Transport};
+use wrym_transport::{async_trait, ReliableTransport, Transport};
 use laminar::{Packet, Socket, SocketEvent};
-use tokio::{sync::Mutex, task};
+use tokio::{sync::Mutex, task::spawn};
 
 pub struct LaminarTransport {
     socket: Arc<Mutex<Socket>>
@@ -31,7 +31,7 @@ impl Transport for LaminarTransport {
     async fn recv(&mut self) -> Option<(String, Vec<u8>)> {
         let socket = self.socket.clone();
 
-        task::spawn(async move {
+        spawn(async move {
             socket.lock().await.manual_poll(Instant::now());
         });
 

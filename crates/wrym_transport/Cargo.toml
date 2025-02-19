@@ -1,7 +1,7 @@
 [package]
-name = "wrym_udp"
+name = "wrym_transport"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-wrym = { path = "../" }
+async-trait = "0.1.86"

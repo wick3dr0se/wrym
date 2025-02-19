@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use crate::transport::{ReliableTransport, Transport};
+use wrym_transport::{ReliableTransport, Transport};
 
 pub enum ClientEvent {
     MessageReceived(Vec<u8>)
