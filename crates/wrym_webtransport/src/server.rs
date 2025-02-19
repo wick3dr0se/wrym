@@ -1,6 +1,8 @@
 use std::collections::HashMap;
-use wrym_transport::{async_trait, Transport};
+
+use tokio::{runtime::Handle, task};
 use wtransport::{Connection, Endpoint, Identity, ServerConfig, tls::{CertificateChain, PrivateKey}};
+use wrym_transport::Transport;
 
 pub struct WebTransport {
     connections: HashMap<String, Connection>
@@ -30,18 +32,9 @@ impl WebTransport {
 
         transport
     }
-}
 
-#[async_trait]
-impl Transport for WebTransport {
-    async fn send_to(&self, addr: &str, bytes: &[u8]) {        
-        if let Some(conn) = self.connections.get(addr) {
-            conn.send_datagram(bytes.to_vec()).unwrap();
-        }
-    }
-
-    async fn recv(&mut self) -> Option<(String, Vec<u8>)> {
-        for (addr, conn) in self.connections.iter_mut() {
+    pub async fn async_recv(&self) -> Option<(String, Vec<u8>)> {
+        for (addr, conn) in &self.connections {
             match conn.receive_datagram().await {
                 Ok(data) => return Some((addr.to_owned(), data.payload().to_vec())),
                 Err(_) => continue
@@ -49,5 +42,19 @@ impl Transport for WebTransport {
         }
 
         None
+    }
+}
+
+impl Transport for WebTransport {
+    fn send_to(&self, addr: &str, bytes: &[u8]) {        
+        if let Some(conn) = self.connections.get(addr) {
+            conn.send_datagram(bytes.to_vec()).unwrap();
+        }
+    }
+
+    fn recv(&mut self) -> Option<(String, Vec<u8>)> {
+        task::block_in_place(|| {
+            Handle::current().block_on(self.async_recv())
+        })
     }
 }

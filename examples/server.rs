@@ -26,10 +26,10 @@ async fn main() {
     println!("Server is running on {}", SERVER_ADDR);
 
     loop {
-        server.poll(Duration::from_secs(60)).await;
+        server.poll(Duration::from_secs(60));
         sleep(Duration::from_millis(10)).await;
 
-        if let Some(event) = server.recv_event() {
+        while let Some(event) = server.recv_event() {
             match event {
                 ServerEvent::ClientConnected(addr) => {
                     println!("New connection from client {}", addr);
@@ -41,7 +41,7 @@ async fn main() {
                     let msg = deserialize::<String>(&bytes).unwrap();
                     println!("Message received from client {}: {:?}", addr, msg);
 
-                    server.broadcast(&serialize(&format!("Received '{}' from some client", msg)).unwrap()).await;
+                    server.broadcast(&serialize(&format!("Received '{}' from some client", msg)).unwrap());
                 }
             }
         }

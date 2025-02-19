@@ -1,6 +1,6 @@
 use std::net::UdpSocket;
 
-use wrym_transport::{async_trait, Transport};
+use wrym_transport::Transport;
 
 pub struct UdpTransport {
     socket: UdpSocket
@@ -15,13 +15,12 @@ impl UdpTransport {
     }
 }
 
-#[async_trait]
 impl Transport for UdpTransport {
-    async fn send_to(&self, addr: &str, bytes: &[u8]) {
+    fn send_to(&self, addr: &str, bytes: &[u8]) {
         self.socket.send_to(bytes, addr).unwrap();
     }
 
-    async fn recv(&mut self) -> Option<(String, Vec<u8>)> {
+    fn recv(&mut self) -> Option<(String, Vec<u8>)> {
         let mut buf = [0; 1024];
 
         if let Ok((len, addr)) = self.socket.recv_from(&mut buf) {

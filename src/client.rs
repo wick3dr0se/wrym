@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use wrym_transport::{ReliableTransport, Transport};
+use wrym_transport::{Transport, ReliableTransport};
 
 pub enum ClientEvent {
     MessageReceived(Vec<u8>)
@@ -21,8 +21,8 @@ impl<T: Transport> Client<T> {
         }
     }
 
-    pub async fn poll(&mut self) {
-        if let Some((_addr, bytes)) = self.transport.recv().await {
+    pub fn poll(&mut self) {
+        if let Some((_addr, bytes)) = self.transport.recv() {
             self.events.push_back(ClientEvent::MessageReceived(bytes));
         }
     }
@@ -31,13 +31,13 @@ impl<T: Transport> Client<T> {
         self.events.pop_front()
     }
 
-    pub async fn send(&self, bytes: &[u8]) {
-        self.transport.send_to(&self.server_addr, bytes).await;
+    pub fn send(&self, bytes: &[u8]) {
+        self.transport.send_to(&self.server_addr, bytes);
     }
 }
 
 impl<T: Transport + ReliableTransport> Client<T> {
-    pub async fn send_reliable(&self, bytes: &[u8], ordered: bool) {
-        self.transport.send_reliable_to(&self.server_addr, bytes, ordered).await;
+    pub fn send_reliable(&self, bytes: &[u8], ordered: bool) {
+        self.transport.send_reliable_to(&self.server_addr, bytes, ordered);
     }
 }

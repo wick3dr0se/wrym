@@ -1,6 +1,6 @@
 use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
 
-use wrym_transport::{ReliableTransport, Transport};
+use wrym_transport::{Transport, ReliableTransport};
 
 pub struct ClientData {
     last_activity: Instant
@@ -39,10 +39,10 @@ impl<T: Transport> Server<T> {
         });
     }
 
-    pub async fn poll(&mut self, timeout: Duration) {
+    pub fn poll(&mut self, timeout: Duration) {
         self.drop_inactive_clients(timeout);
 
-        if let Some((addr, bytes)) = self.transport.recv().await {
+        if let Some((addr, bytes)) = self.transport.recv() {
             if self.clients.insert(addr.to_string(), ClientData { last_activity: Instant::now() }).is_none() {
                 self.events.push_back(ServerEvent::ClientConnected(addr.to_string()));
             }
@@ -55,25 +55,25 @@ impl<T: Transport> Server<T> {
         self.events.pop_front()
     }
 
-    pub async fn send_to(&self, addr: &str, bytes: &[u8]) {
-        self.transport.send_to(addr, bytes).await;
+    pub fn send_to(&self, addr: &str, bytes: &[u8]) {
+        self.transport.send_to(addr, bytes);
     }
 
-    pub async fn broadcast(&self, bytes: &[u8]) {
+    pub fn broadcast(&self, bytes: &[u8]) {
         for addr in self.clients.keys() {
-            self.transport.send_to(addr, bytes).await;
+            self.transport.send_to(addr, bytes);
         }
     }
 }
 
 impl<T: Transport + ReliableTransport> Server<T> {
-    pub async fn send_reliable_to(&self, addr: &str, bytes: &[u8], ordered: bool) {
-        self.transport.send_reliable_to(addr, bytes, ordered).await;
+    pub fn send_reliable_to(&self, addr: &str, bytes: &[u8], ordered: bool) {
+        self.transport.send_reliable_to(addr, bytes, ordered);
     }
 
-    pub async fn broadcast_reliable(&self, bytes: &[u8], ordered: bool) {
+    pub fn broadcast_reliable(&self, bytes: &[u8], ordered: bool) {
         for addr in self.clients.keys() {
-            self.transport.send_reliable_to(addr, bytes, ordered).await
+            self.transport.send_reliable_to(addr, bytes, ordered)
         }
     }
 }

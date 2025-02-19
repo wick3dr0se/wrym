@@ -1,7 +1,7 @@
-use std::time::Duration;
+use std::{process::exit, time::Duration};
 
 use bincode::{deserialize, serialize};
-use tokio::{io::{AsyncBufReadExt, BufReader}, time::sleep, select};
+use tokio:: time::sleep;
 use wrym::client::{Client, ClientEvent};
 #[cfg(feature = "udp")]
 use wrym_udp::UdpTransport;
@@ -23,34 +23,22 @@ async fn main() {
     let transport = WebTransport::new("https://[::1]:8080").await;
     let mut client = Client::new(transport, SERVER_ADDR);
 
-    let mut stdin = BufReader::new(tokio::io::stdin());
-    let mut buf = String::new();
-
     println!("Client is running on {}", CLIENT_ADDR);
 
     loop {
-        select! {
-            _ = client.poll() => {
-                if let Some(event) = client.recv_event() {
-                    match event {
-                        ClientEvent::MessageReceived(bytes) => {
-                            println!("Message received from server: {:?}", deserialize::<String>(&bytes).unwrap());
-                        }
-                    }
-                }
-            }
-            result = stdin.read_line(&mut buf) => {
-                if result.is_ok() {
-                    let msg = buf.trim();
+        client.poll();
 
-                    if !msg.is_empty() {
-                        client.send(&serialize(msg).unwrap()).await;
-                    }
+        while let Some(event) = client.recv_event() {
+            match event {
+                ClientEvent::MessageReceived(bytes) => {
+                    println!("Message received from server: {:?}", deserialize::<String>(&bytes).unwrap());
 
-                    buf.clear();
+                    exit(0);
                 }
             }
         }
+
+        client.send_reliable(&serialize("Hello from the client").unwrap(), true);
 
         sleep(Duration::from_millis(100)).await;
     }

@@ -7,3 +7,4 @@ edition = "2021"
 wtransport = "0.5.0"
 
 wrym_transport = { path = "../wrym_transport" }
+tokio = "1.43.0"

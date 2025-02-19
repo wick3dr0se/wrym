@@ -1,12 +1,8 @@
-pub use async_trait::async_trait;
-
-#[async_trait]
-pub trait Transport: 'static + Send + Sync {
-    async fn send_to(&self, addr: &str, bytes: &[u8]);
-    async fn recv(&mut self) -> Option<(String, Vec<u8>)>;
+pub trait Transport {
+    fn send_to(&self, addr: &str, bytes: &[u8]);
+    fn recv(&mut self) -> Option<(String, Vec<u8>)>;
 }
 
-#[async_trait]
-pub trait ReliableTransport: 'static + Send + Sync {
-    async fn send_reliable_to(&self, addr: &str, bytes: &[u8], ordered: bool);
+pub trait ReliableTransport {
+    fn send_reliable_to(&self, addr: &str, bytes: &[u8], ordered: bool);
 }
