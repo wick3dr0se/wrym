@@ -26,8 +26,7 @@ async fn main() {
     println!("Server is running on {}", SERVER_ADDR);
 
     loop {
-        server.poll(Duration::from_secs(60));
-        sleep(Duration::from_millis(10)).await;
+        server.poll();
 
         while let Some(event) = server.recv_event() {
             match event {
@@ -45,5 +44,7 @@ async fn main() {
                 }
             }
         }
+
+        sleep(Duration::from_millis(10)).await;
     }
 }

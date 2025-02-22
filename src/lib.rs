@@ -11,3 +11,7 @@ pub mod transport {
         }
     }
 }
+
+const OPCODE_CLIENT_CONNECTED: u8 = 1;
+const OPCODE_CLIENT_DISCONNECTED: u8 = 2;
+const OPCODE_MESSAGE: u8 = 3;

@@ -2,14 +2,16 @@ use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
 
 use wrym_transport::{Transport, ReliableTransport};
 
-pub struct ClientData {
-    last_activity: Instant
-}
+use crate::{OPCODE_CLIENT_CONNECTED, OPCODE_CLIENT_DISCONNECTED, OPCODE_MESSAGE};
 
 pub enum ServerEvent {
     ClientConnected(String),
     ClientDisconnected(String),
     MessageReceived(String, Vec<u8>)
+}
+
+pub struct ClientData {
+    last_activity: Instant
 }
 
 pub struct Server<T: Transport> {
@@ -28,26 +30,47 @@ impl<T: Transport> Server<T> {
     }
 
     fn drop_inactive_clients(&mut self, timeout: Duration) {
-        self.clients.retain(|addr, data| {
-            if Instant::now().duration_since(data.last_activity) > timeout {
-                self.events.push_back(ServerEvent::ClientDisconnected(addr.clone()));
-                
-                false
-            } else {
-                true
+        let to_disconnect: Vec<String> = self.clients.iter()
+            .filter_map(|(addr, data)| {
+                if Instant::now().duration_since(data.last_activity) > timeout {
+                    Some(addr.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+    
+        for addr in to_disconnect {
+            self.send_to(&addr, &[OPCODE_CLIENT_DISCONNECTED]);
+            self.clients.remove(&addr);
+            self.events.push_back(ServerEvent::ClientDisconnected(addr));
+        }
+    }    
+
+    pub fn poll(&mut self) {
+        // move timeout to client config later
+        self.drop_inactive_clients(Duration::from_secs(60));
+
+        if let Some((addr, mut bytes)) = self.transport.recv() {
+            if bytes.is_empty() { return; }
+
+            match bytes.remove(0) {
+                OPCODE_CLIENT_CONNECTED => {
+                    if self.clients.insert(addr.clone(), ClientData { last_activity: Instant::now() }).is_none() {
+                        self.send_to(&addr, &[OPCODE_CLIENT_CONNECTED]);
+                        self.events.push_back(ServerEvent::ClientConnected(addr));
+                    }
+                }
+                OPCODE_CLIENT_DISCONNECTED => {
+                    if self.clients.remove(&addr).is_some() {
+                        self.events.push_back(ServerEvent::ClientDisconnected(addr));
+                    }
+                }
+                OPCODE_MESSAGE => {
+                    self.events.push_back(ServerEvent::MessageReceived(addr, bytes));
+                }
+                _ => {}
             }
-        });
-    }
-
-    pub fn poll(&mut self, timeout: Duration) {
-        self.drop_inactive_clients(timeout);
-
-        if let Some((addr, bytes)) = self.transport.recv() {
-            if self.clients.insert(addr.to_string(), ClientData { last_activity: Instant::now() }).is_none() {
-                self.events.push_back(ServerEvent::ClientConnected(addr.to_string()));
-            }
-
-            self.events.push_back(ServerEvent::MessageReceived(addr.to_string(), bytes));
         }
     }
 

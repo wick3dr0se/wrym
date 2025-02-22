@@ -30,15 +30,23 @@ async fn main() {
 
         while let Some(event) = client.recv_event() {
             match event {
-                ClientEvent::MessageReceived(bytes) => {
-                    println!("Message received from server: {:?}", deserialize::<String>(&bytes).unwrap());
+                ClientEvent::Connected => {
+                    println!("Server {} acknowledged our connection!", SERVER_ADDR);
+
+                    let msg = format!("Hello from client: {}", CLIENT_ADDR);
+
+                    client.send(&serialize(&msg).unwrap());
+                }
+                ClientEvent::Disconnected => {
+                    println!("Lost connection to server {}", SERVER_ADDR);
 
                     exit(0);
                 }
+                ClientEvent::MessageReceived(bytes) => {
+                    println!("Message received from server: {:?}", deserialize::<String>(&bytes).unwrap());
+                }
             }
         }
-
-        client.send_reliable(&serialize("Hello from the client").unwrap(), true);
 
         sleep(Duration::from_millis(100)).await;
     }
