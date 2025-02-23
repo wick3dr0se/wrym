@@ -2,7 +2,7 @@ use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
 
 use wrym_transport::{Transport, ReliableTransport};
 
-use crate::{into_opcode_message, OPCODE_CLIENT_CONNECTED, OPCODE_CLIENT_DISCONNECTED, OPCODE_MESSAGE};
+use crate::Opcode;
 
 pub struct ServerConfig {
     pub client_timeout: Duration
@@ -43,6 +43,22 @@ impl<T: Transport> Server<T> {
         }
     }
 
+    fn add_client(&mut self, addr: &str) {
+        if self.clients.insert(
+            addr.to_string(), ClientData { last_activity: Instant::now() }
+        ).is_none() {
+            self.transport.send_to(&addr, &[Opcode::ClientConnected as u8]);
+            self.events.push_back(ServerEvent::ClientConnected(addr.to_string()));
+        }
+    }
+
+    fn drop_client(&mut self, addr: &str) {
+        if self.clients.remove(addr).is_some() {
+            self.transport.send_to(&addr, &[Opcode::ClientDisconnected as u8]);
+            self.events.push_back(ServerEvent::ClientDisconnected(addr.to_string()));
+        }
+    }
+
     fn drop_inactive_clients(&mut self, timeout: Duration) {
         let to_disconnect: Vec<String> = self.clients.iter()
             .filter_map(|(addr, data)| {
@@ -53,13 +69,11 @@ impl<T: Transport> Server<T> {
                 }
             })
             .collect();
-    
+
         for addr in to_disconnect {
-            self.transport.send_to(&addr, &[OPCODE_CLIENT_DISCONNECTED]);
-            self.clients.remove(&addr);
-            self.events.push_back(ServerEvent::ClientDisconnected(addr));
+            self.drop_client(&addr);
         }
-    }    
+    }
 
     pub fn poll(&mut self) {
         self.drop_inactive_clients(self.config.client_timeout);
@@ -67,24 +81,12 @@ impl<T: Transport> Server<T> {
         if let Some((addr, mut bytes)) = self.transport.recv() {
             if bytes.is_empty() { return; }
 
-            match bytes.remove(0) {
-                OPCODE_CLIENT_CONNECTED => {
-                    if self.clients.insert(
-                        addr.clone(), ClientData { last_activity: Instant::now() }
-                    ).is_none() {
-                        self.transport.send_to(&addr, &[OPCODE_CLIENT_CONNECTED]);
-                        self.events.push_back(ServerEvent::ClientConnected(addr));
-                    }
-                }
-                OPCODE_CLIENT_DISCONNECTED => {
-                    if self.clients.remove(&addr).is_some() {
-                        self.events.push_back(ServerEvent::ClientDisconnected(addr));
-                    }
-                }
-                OPCODE_MESSAGE => {
+            match bytes.remove(0).into() {
+                Opcode::ClientConnected => self.add_client(&addr),
+                Opcode::ClientDisconnected => self.drop_client(&addr),
+                Opcode::Message => {
                     self.events.push_back(ServerEvent::MessageReceived(addr, bytes));
                 }
-                _ => {}
             }
         }
     }
@@ -94,11 +96,11 @@ impl<T: Transport> Server<T> {
     }
 
     pub fn send_to(&self, addr: &str, bytes: &[u8]) {
-        self.transport.send_to(addr, &into_opcode_message(bytes));
+        self.transport.send_to(addr, &Opcode::Message.with_bytes(bytes));
     }
 
     pub fn broadcast(&self, bytes: &[u8]) {
-        let msg = into_opcode_message(bytes);
+        let msg = Opcode::Message.with_bytes(bytes);
 
         for addr in self.clients.keys() {
             self.transport.send_to(addr, &msg);
@@ -108,11 +110,11 @@ impl<T: Transport> Server<T> {
 
 impl<T: Transport + ReliableTransport> Server<T> {
     pub fn send_reliable_to(&self, addr: &str, bytes: &[u8], ordered: bool) {
-        self.transport.send_reliable_to(addr, &into_opcode_message(bytes), ordered);
+        self.transport.send_reliable_to(addr, &Opcode::Message.with_bytes(bytes), ordered);
     }
 
     pub fn broadcast_reliable(&self, bytes: &[u8], ordered: bool) {
-        let msg = into_opcode_message(bytes);
+        let msg = Opcode::Message.with_bytes(bytes);
         
         for addr in self.clients.keys() {
             self.transport.send_reliable_to(addr, &msg, ordered)

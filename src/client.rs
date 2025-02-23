@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use wrym_transport::{Transport, ReliableTransport};
 
-use crate::{into_opcode_message, OPCODE_CLIENT_CONNECTED, OPCODE_CLIENT_DISCONNECTED, OPCODE_MESSAGE};
+use crate::Opcode;
 
 pub enum ClientEvent {
     Connected,
@@ -24,7 +24,7 @@ impl<T: Transport> Client<T> {
             events: VecDeque::new()
         };
 
-        client.transport.send_to(server_addr, &[OPCODE_CLIENT_CONNECTED]);
+        client.transport.send_to(server_addr, &[Opcode::ClientConnected as u8]);
 
         client
     }
@@ -33,17 +33,16 @@ impl<T: Transport> Client<T> {
         if let Some((_addr, mut bytes)) = self.transport.recv() {
             if bytes.is_empty() { return; }
 
-            match bytes.remove(0) {
-                OPCODE_CLIENT_CONNECTED => {
+            match bytes.remove(0).into() {
+                Opcode::ClientConnected => {
                     self.events.push_back(ClientEvent::Connected);
                 }
-                OPCODE_CLIENT_DISCONNECTED => {
+                Opcode::ClientDisconnected => {
                     self.events.push_back(ClientEvent::Disconnected);
                 }
-                OPCODE_MESSAGE => {
+                Opcode::Message => {
                     self.events.push_back(ClientEvent::MessageReceived(bytes));
                 }
-                _ => {}
             }
         }
     }
@@ -53,18 +52,18 @@ impl<T: Transport> Client<T> {
     }
 
     pub fn send(&self, bytes: &[u8]) {
-        self.transport.send_to(&self.server_addr, &into_opcode_message(bytes));
+        self.transport.send_to(&self.server_addr, &Opcode::Message.with_bytes(bytes));
     }
 
     pub fn disconnect(&self) {
-        self.transport.send_to(&self.server_addr, &[OPCODE_CLIENT_DISCONNECTED]);
+        self.transport.send_to(&self.server_addr, &[Opcode::ClientDisconnected as u8]);
     }
 }
 
 impl<T: Transport + ReliableTransport> Client<T> {
     pub fn send_reliable(&self, bytes: &[u8], ordered: bool) {
         self.transport.send_reliable_to(
-            &self.server_addr, &into_opcode_message(bytes), ordered
+            &self.server_addr, &Opcode::Message.with_bytes(bytes), ordered
         );
     }
 }
