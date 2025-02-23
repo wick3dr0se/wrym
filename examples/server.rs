@@ -40,7 +40,7 @@ async fn main() {
                     let msg = deserialize::<String>(&bytes).unwrap();
                     println!("Message received from client {}: {:?}", addr, msg);
 
-                    server.broadcast(&serialize(&format!("Received '{}' from some client", msg)).unwrap());
+                    server.broadcast(&serialize(&format!("Received '{}' from client {}", msg, addr)).unwrap());
                 }
             }
         }

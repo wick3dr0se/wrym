@@ -2,7 +2,7 @@ use std::{collections::{HashMap, VecDeque}, time::{Duration, Instant}};
 
 use wrym_transport::{Transport, ReliableTransport};
 
-use crate::{OPCODE_CLIENT_CONNECTED, OPCODE_CLIENT_DISCONNECTED, OPCODE_MESSAGE};
+use crate::{into_opcode_message, OPCODE_CLIENT_CONNECTED, OPCODE_CLIENT_DISCONNECTED, OPCODE_MESSAGE};
 
 pub enum ServerEvent {
     ClientConnected(String),
@@ -41,7 +41,7 @@ impl<T: Transport> Server<T> {
             .collect();
     
         for addr in to_disconnect {
-            self.send_to(&addr, &[OPCODE_CLIENT_DISCONNECTED]);
+            self.transport.send_to(&addr, &[OPCODE_CLIENT_DISCONNECTED]);
             self.clients.remove(&addr);
             self.events.push_back(ServerEvent::ClientDisconnected(addr));
         }
@@ -56,8 +56,10 @@ impl<T: Transport> Server<T> {
 
             match bytes.remove(0) {
                 OPCODE_CLIENT_CONNECTED => {
-                    if self.clients.insert(addr.clone(), ClientData { last_activity: Instant::now() }).is_none() {
-                        self.send_to(&addr, &[OPCODE_CLIENT_CONNECTED]);
+                    if self.clients.insert(
+                        addr.clone(), ClientData { last_activity: Instant::now() }
+                    ).is_none() {
+                        self.transport.send_to(&addr, &[OPCODE_CLIENT_CONNECTED]);
                         self.events.push_back(ServerEvent::ClientConnected(addr));
                     }
                 }
@@ -79,24 +81,28 @@ impl<T: Transport> Server<T> {
     }
 
     pub fn send_to(&self, addr: &str, bytes: &[u8]) {
-        self.transport.send_to(addr, bytes);
+        self.transport.send_to(addr, &into_opcode_message(bytes));
     }
 
     pub fn broadcast(&self, bytes: &[u8]) {
+        let msg = into_opcode_message(bytes);
+
         for addr in self.clients.keys() {
-            self.transport.send_to(addr, bytes);
+            self.transport.send_to(addr, &msg);
         }
     }
 }
 
 impl<T: Transport + ReliableTransport> Server<T> {
     pub fn send_reliable_to(&self, addr: &str, bytes: &[u8], ordered: bool) {
-        self.transport.send_reliable_to(addr, bytes, ordered);
+        self.transport.send_reliable_to(addr, &into_opcode_message(bytes), ordered);
     }
 
     pub fn broadcast_reliable(&self, bytes: &[u8], ordered: bool) {
+        let msg = into_opcode_message(bytes);
+        
         for addr in self.clients.keys() {
-            self.transport.send_reliable_to(addr, bytes, ordered)
+            self.transport.send_reliable_to(addr, &msg, ordered)
         }
     }
 }

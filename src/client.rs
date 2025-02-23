@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use wrym_transport::{Transport, ReliableTransport};
 
-use crate::{OPCODE_CLIENT_CONNECTED, OPCODE_CLIENT_DISCONNECTED, OPCODE_MESSAGE};
+use crate::{into_opcode_message, OPCODE_CLIENT_CONNECTED, OPCODE_CLIENT_DISCONNECTED, OPCODE_MESSAGE};
 
 pub enum ClientEvent {
     Connected,
@@ -53,23 +53,19 @@ impl<T: Transport> Client<T> {
     }
 
     pub fn send(&self, bytes: &[u8]) {
-        let mut msg = vec![OPCODE_MESSAGE];
-        msg.extend_from_slice(bytes);
-
-        self.transport.send_to(&self.server_addr, &msg);
+        self.transport.send_to(&self.server_addr, &into_opcode_message(bytes));
     }
 
     pub fn disconnect(&self) {
-        self.send(&[OPCODE_CLIENT_DISCONNECTED]);
+        self.transport.send_to(&self.server_addr, &[OPCODE_CLIENT_DISCONNECTED]);
     }
 }
 
 impl<T: Transport + ReliableTransport> Client<T> {
     pub fn send_reliable(&self, bytes: &[u8], ordered: bool) {
-        let mut msg = vec![OPCODE_MESSAGE];
-        msg.extend_from_slice(bytes);
-
-        self.transport.send_reliable_to(&self.server_addr, &msg, ordered);
+        self.transport.send_reliable_to(
+            &self.server_addr, &into_opcode_message(bytes), ordered
+        );
     }
 }
 

@@ -33,9 +33,7 @@ async fn main() {
                 ClientEvent::Connected => {
                     println!("Server {} acknowledged our connection!", SERVER_ADDR);
 
-                    let msg = format!("Hello from client: {}", CLIENT_ADDR);
-
-                    client.send(&serialize(&msg).unwrap());
+                    client.send(&serialize("Hello").unwrap());
                 }
                 ClientEvent::Disconnected => {
                     println!("Lost connection to server {}", SERVER_ADDR);
