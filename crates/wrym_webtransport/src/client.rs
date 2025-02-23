@@ -1,4 +1,4 @@
-use tokio::{runtime::Handle, task};
+use tokio::runtime::Handle;
 use wtransport::{ClientConfig, Connection, Endpoint};
 use wrym_transport::Transport;
 
@@ -7,12 +7,16 @@ pub struct WebTransport {
 }
 
 impl WebTransport {
-    pub async fn new(server_addr: &str) -> Self {
+    pub async fn async_new(server_addr: &str) -> Self {
         let config = ClientConfig::default();
         let endpoint = Endpoint::client(config).unwrap();
         let connection = endpoint.connect(server_addr).await.unwrap();
 
         Self { connection: Some((server_addr.to_string(), connection)) }
+    }
+
+    pub fn new(server_addr: &str) -> Self {
+        Handle::current().block_on(Self::async_new(server_addr))
     }
 
     pub async fn async_recv(&self) -> Option<(String, Vec<u8>)> {
@@ -35,8 +39,6 @@ impl Transport for WebTransport {
     }
 
     fn recv(&mut self) -> Option<(String, Vec<u8>)> {
-        task::block_in_place(|| {
-            Handle::current().block_on(self.async_recv())
-        })
+        Handle::current().block_on(self.async_recv())
     }
 }

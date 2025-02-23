@@ -1,7 +1,6 @@
-use std::time::Duration;
+use std::{thread::sleep, time::Duration};
 
 use bincode::{deserialize, serialize};
-use tokio::time::sleep;
 use wrym::server::{Server, ServerConfig, ServerEvent};
 #[cfg(feature = "udp")]
 use wrym_udp::UdpTransport;
@@ -12,14 +11,13 @@ use wrym_webtransport::server::WebTransport;
 
 const SERVER_ADDR: &str = "127.0.0.1:8080";
 
-#[tokio::main]
-async fn main() {
+fn main() {
     #[cfg(feature = "udp")]
     let transport = UdpTransport::new(SERVER_ADDR);
     #[cfg(feature = "laminar")]
     let transport = LaminarTransport::new(SERVER_ADDR);
     #[cfg(feature = "webtransport")]
-    let transport = WebTransport::new("some_cert.file", "some_key.file").await;
+    let transport = WebTransport::new("some_cert.file", "some_key.file");
     let mut server = Server::new(transport, ServerConfig::default());
 
     println!("Server is running on {}", SERVER_ADDR);
@@ -44,6 +42,6 @@ async fn main() {
             }
         }
 
-        sleep(Duration::from_millis(10)).await;
+        sleep(Duration::from_millis(10));
     }
 }

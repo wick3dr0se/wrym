@@ -9,7 +9,7 @@ pub struct WebTransport {
 }
 
 impl WebTransport {
-    pub async fn new(cert: &str, key: &str) -> Self {
+    pub async fn async_new(cert: &str, key: &str) -> Self {
         let cert_chain = CertificateChain::load_pemfile(cert)
             .await
             .expect("Failed to load certificate chain");
@@ -33,6 +33,10 @@ impl WebTransport {
         transport
     }
 
+    pub fn new(cert: &str, key: &str) -> Self {
+        Handle::current().block_on(Self::async_new(cert, key))
+    }
+
     pub async fn async_recv(&self) -> Option<(String, Vec<u8>)> {
         for (addr, conn) in &self.connections {
             match conn.receive_datagram().await {
@@ -53,8 +57,6 @@ impl Transport for WebTransport {
     }
 
     fn recv(&mut self) -> Option<(String, Vec<u8>)> {
-        task::block_in_place(|| {
-            Handle::current().block_on(self.async_recv())
-        })
+        Handle::current().block_on(self.async_recv())
     }
 }
