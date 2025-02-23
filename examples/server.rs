@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bincode::{deserialize, serialize};
 use tokio::time::sleep;
-use wrym::server::{Server, ServerEvent};
+use wrym::server::{Server, ServerConfig, ServerEvent};
 #[cfg(feature = "udp")]
 use wrym_udp::UdpTransport;
 #[cfg(feature = "laminar")]
@@ -20,8 +20,7 @@ async fn main() {
     let transport = LaminarTransport::new(SERVER_ADDR);
     #[cfg(feature = "webtransport")]
     let transport = WebTransport::new("some_cert.file", "some_key.file").await;
-
-    let mut server = Server::new(transport);
+    let mut server = Server::new(transport, ServerConfig::default());
 
     println!("Server is running on {}", SERVER_ADDR);
 

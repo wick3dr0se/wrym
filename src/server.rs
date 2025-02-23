@@ -4,26 +4,40 @@ use wrym_transport::{Transport, ReliableTransport};
 
 use crate::{into_opcode_message, OPCODE_CLIENT_CONNECTED, OPCODE_CLIENT_DISCONNECTED, OPCODE_MESSAGE};
 
-pub enum ServerEvent {
-    ClientConnected(String),
-    ClientDisconnected(String),
-    MessageReceived(String, Vec<u8>)
+pub struct ServerConfig {
+    pub client_timeout: Duration
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            client_timeout: Duration::from_secs(60)
+        }
+    }
 }
 
 pub struct ClientData {
     last_activity: Instant
 }
 
+pub enum ServerEvent {
+    ClientConnected(String),
+    ClientDisconnected(String),
+    MessageReceived(String, Vec<u8>)
+}
+
 pub struct Server<T: Transport> {
     transport: T,
+    config: ServerConfig,
     clients: HashMap<String, ClientData>,
     events: VecDeque<ServerEvent>
 }
 
 impl<T: Transport> Server<T> {
-    pub fn new(transport: T) -> Self {
+    pub fn new(transport: T, config: ServerConfig) -> Self {
         Self {
             transport,
+            config,
             clients: HashMap::new(),
             events: VecDeque::new()
         }
@@ -48,8 +62,7 @@ impl<T: Transport> Server<T> {
     }    
 
     pub fn poll(&mut self) {
-        // move timeout to client config later
-        self.drop_inactive_clients(Duration::from_secs(60));
+        self.drop_inactive_clients(self.config.client_timeout);
 
         if let Some((addr, mut bytes)) = self.transport.recv() {
             if bytes.is_empty() { return; }
