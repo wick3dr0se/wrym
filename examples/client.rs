@@ -1,24 +1,16 @@
 use std::{process::exit, thread::sleep, time::Duration};
 
 use bincode::{deserialize, serialize};
-use wrym::client::{Client, ClientEvent};
-#[cfg(feature = "laminar")]
-use wrym_laminar::LaminarTransport;
-#[cfg(feature = "udp")]
-use wrym_udp::UdpTransport;
-#[cfg(feature = "webtransport")]
-use wrym_webtransport::client::WebTransport;
+use wrym::{
+    client::{Client, ClientEvent},
+    transport::client::Transport,
+};
 
 const SERVER_ADDR: &str = "127.0.0.1:8080";
 const CLIENT_ADDR: &str = "127.0.0.1:0";
 
 fn main() {
-    #[cfg(feature = "udp")]
-    let transport = UdpTransport::new(CLIENT_ADDR);
-    #[cfg(feature = "laminar")]
-    let transport = LaminarTransport::new(CLIENT_ADDR);
-    #[cfg(feature = "webtransport")]
-    let transport = WebTransport::new("https://[::1]:8080");
+    let transport = Transport::new(SERVER_ADDR);
     let mut client = Client::new(transport, SERVER_ADDR);
 
     println!("Client is running on {}", CLIENT_ADDR);

@@ -2,12 +2,24 @@ pub mod client;
 pub mod server;
 pub mod transport {
     cfg_if::cfg_if! {
-        if #[cfg(feature = "udp")] {
-            pub use wrym_udp::UdpTransport;
+        if #[cfg(feature = "tcp")] {
+            pub mod server {
+                pub use wrym_tcp::server::TcpTransport as Transport;
+            }
+            pub mod client {
+                pub use wrym_tcp::client::TcpTransport as Transport;
+            }
+        } else if #[cfg(feature = "udp")] {
+            pub use wrym_udp::UdpTransport as Transport;
         } else if #[cfg(feature = "laminar")] {
-            pub use wrym_laminar::LaminarTransport;
+            pub use wrym_laminar::LaminarTransport as Transport;
         } else if #[cfg(feature = "webtransport")] {
-            pub use wrym_webtransport::WebTransport;
+            pub mod server {
+                pub use wrym_webtransport::server::WebTransport as Transport;
+            }
+            pub mod client {
+                pub use wrym_webtransport::client::WebTransport as Transport;
+            }
         }
     }
 }

@@ -1363,6 +1363,7 @@ dependencies = [
  "bincode",
  "cfg-if",
  "wrym_laminar",
+ "wrym_tcp",
  "wrym_transport",
  "wrym_udp",
  "wrym_webtransport",
@@ -1373,6 +1374,13 @@ name = "wrym_laminar"
 version = "0.1.0"
 dependencies = [
  "laminar",
+ "wrym_transport",
+]
+
+[[package]]
+name = "wrym_tcp"
+version = "0.1.0"
+dependencies = [
  "wrym_transport",
 ]
 

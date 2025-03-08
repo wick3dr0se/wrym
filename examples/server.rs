@@ -1,23 +1,15 @@
 use std::{thread::sleep, time::Duration};
 
 use bincode::{deserialize, serialize};
-use wrym::server::{Server, ServerConfig, ServerEvent};
-#[cfg(feature = "laminar")]
-use wrym_laminar::LaminarTransport;
-#[cfg(feature = "udp")]
-use wrym_udp::UdpTransport;
-#[cfg(feature = "webtransport")]
-use wrym_webtransport::server::WebTransport;
+use wrym::{
+    server::{Server, ServerConfig, ServerEvent},
+    transport::server::Transport,
+};
 
 const SERVER_ADDR: &str = "127.0.0.1:8080";
 
 fn main() {
-    #[cfg(feature = "udp")]
-    let transport = UdpTransport::new(SERVER_ADDR);
-    #[cfg(feature = "laminar")]
-    let transport = LaminarTransport::new(SERVER_ADDR);
-    #[cfg(feature = "webtransport")]
-    let transport = WebTransport::new("some_cert.file", "some_key.file");
+    let transport = Transport::new(SERVER_ADDR);
     let mut server = Server::new(transport, ServerConfig::default());
 
     println!("Server is running on {}", SERVER_ADDR);
