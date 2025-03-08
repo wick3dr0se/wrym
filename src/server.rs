@@ -99,6 +99,10 @@ impl<T: Transport> Server<T> {
                 return;
             }
 
+            if let Some(data) = self.clients.get_mut(&addr) {
+                data.last_activity = Instant::now();
+            }
+
             match bytes.remove(0).into() {
                 Opcode::ClientConnected => self.add_client(&addr),
                 Opcode::ClientDisconnected => self.drop_client(&addr),
