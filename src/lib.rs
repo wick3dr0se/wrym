@@ -1,5 +1,5 @@
-pub mod server;
 pub mod client;
+pub mod server;
 pub mod transport {
     cfg_if::cfg_if! {
         if #[cfg(feature = "udp")] {
@@ -16,7 +16,7 @@ pub mod transport {
 pub(crate) enum Opcode {
     ClientConnected = 1,
     ClientDisconnected = 2,
-    Message = 3
+    Message = 3,
 }
 
 impl From<u8> for Opcode {
@@ -25,7 +25,7 @@ impl From<u8> for Opcode {
             1 => Opcode::ClientConnected,
             2 => Opcode::ClientDisconnected,
             3 => Opcode::Message,
-            _ => panic!("Invalid opcode: {}", opcode)
+            _ => panic!("Invalid opcode: {}", opcode),
         }
     }
 }

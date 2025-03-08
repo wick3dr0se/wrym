@@ -3,7 +3,7 @@ use std::net::UdpSocket;
 use wrym_transport::Transport;
 
 pub struct UdpTransport {
-    socket: UdpSocket
+    socket: UdpSocket,
 }
 
 impl UdpTransport {

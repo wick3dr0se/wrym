@@ -2,10 +2,10 @@ use std::{process::exit, thread::sleep, time::Duration};
 
 use bincode::{deserialize, serialize};
 use wrym::client::{Client, ClientEvent};
-#[cfg(feature = "udp")]
-use wrym_udp::UdpTransport;
 #[cfg(feature = "laminar")]
 use wrym_laminar::LaminarTransport;
+#[cfg(feature = "udp")]
+use wrym_udp::UdpTransport;
 #[cfg(feature = "webtransport")]
 use wrym_webtransport::client::WebTransport;
 
@@ -39,7 +39,10 @@ fn main() {
                     exit(0);
                 }
                 ClientEvent::MessageReceived(bytes) => {
-                    println!("Message received from server: {:?}", deserialize::<String>(&bytes).unwrap());
+                    println!(
+                        "Message received from server: {:?}",
+                        deserialize::<String>(&bytes).unwrap()
+                    );
                 }
             }
         }

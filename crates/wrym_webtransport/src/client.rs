@@ -1,9 +1,9 @@
 use tokio::runtime::Handle;
-use wtransport::{ClientConfig, Connection, Endpoint};
 use wrym_transport::Transport;
+use wtransport::{ClientConfig, Connection, Endpoint};
 
 pub struct WebTransport {
-    connection: Option<(String, Connection)>
+    connection: Option<(String, Connection)>,
 }
 
 impl WebTransport {
@@ -12,7 +12,9 @@ impl WebTransport {
         let endpoint = Endpoint::client(config).unwrap();
         let connection = endpoint.connect(server_addr).await.unwrap();
 
-        Self { connection: Some((server_addr.to_string(), connection)) }
+        Self {
+            connection: Some((server_addr.to_string(), connection)),
+        }
     }
 
     pub fn new(server_addr: &str) -> Self {
@@ -22,11 +24,11 @@ impl WebTransport {
     pub async fn async_recv(&self) -> Option<(String, Vec<u8>)> {
         if let Some((addr, conn)) = &self.connection {
             match conn.receive_datagram().await {
-                Ok(data) => return Some(( addr.to_owned(), data.payload().to_vec())),
-                Err(_) => return None
+                Ok(data) => return Some((addr.to_owned(), data.payload().to_vec())),
+                Err(_) => return None,
             }
         }
-        
+
         None
     }
 }

@@ -4,7 +4,7 @@ use laminar::{Packet, Socket, SocketEvent};
 use wrym_transport::{ReliableTransport, Transport};
 
 pub struct LaminarTransport {
-    socket: RefCell<Socket>
+    socket: RefCell<Socket>,
 }
 
 impl LaminarTransport {
@@ -42,11 +42,11 @@ impl ReliableTransport for LaminarTransport {
     fn send_reliable_to(&self, addr: &str, bytes: &[u8], ordered: bool) {
         let addr = addr.parse().unwrap();
         let packet = if ordered {
-            Packet::reliable_ordered(addr, bytes.to_vec(), None)  
+            Packet::reliable_ordered(addr, bytes.to_vec(), None)
         } else {
             Packet::reliable_unordered(addr, bytes.to_vec())
         };
-        
+
         self.socket.borrow_mut().send(packet).unwrap();
     }
 }
