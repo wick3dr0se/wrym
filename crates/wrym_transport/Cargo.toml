@@ -2,5 +2,11 @@
 name = "wrym_transport"
 version = "0.1.0"
 edition = "2021"
+authors = ["wick3dr0se <wick3dr0se@protonmail.com>"]
+description = "Transport layer abstraction for wrym"
+license = "AGPL-3.0"
+repository = "https://github.com/wick3dr0se/wrym/tree/main/crates/wrym_transport"
+keywords = ["networking", "gamedev"]
+categories = ["network-programming", "game-development"]
 
 [dependencies]

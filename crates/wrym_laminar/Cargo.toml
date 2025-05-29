@@ -1,9 +1,15 @@
 [package]
 name = "wrym_laminar"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+authors = ["wick3dr0se <wick3dr0se@protonmail.com>"]
+description = "Laminar transport for wrym"
+license = "AGPL-3.0"
+repository = "https://github.com/wick3dr0se/wrym/tree/main/crates/wrym_laminar"
+keywords = ["networking", "gamedev", "rudp"]
+categories = ["network-programming", "game-development"]
 
 [dependencies]
 laminar = "0.5.0"
 
-wrym_transport = { path = "../wrym_transport" }
+wrym_transport = { path = "../wrym_transport", version = "0.1.0" }

@@ -2,6 +2,12 @@
 name = "wrym"
 version = "0.1.0"
 edition = "2024"
+authors = ["wick3dr0se <wick3dr0se@protonmail.com>"]
+description = "Cross-platform, lightweight networking"
+license = "AGPL-3.0"
+repository = "https://github.com/wick3dr0se/wrym"
+keywords = ["networking", "gamedev", "udp", "tcp", "webtransport"]
+categories = ["network-programming", "game-development"]
 
 [workspace]
 members = [
@@ -12,11 +18,10 @@ resolver = "2"
 [dependencies]
 cfg-if = "1.0.0"
 
-wrym_transport = { path = "crates/wrym_transport" }
-wrym_tcp = { path = "crates/wrym_tcp", optional = true }
-wrym_udp = { path = "crates/wrym_udp", optional = true }
-wrym_laminar = { path = "crates/wrym_laminar", optional = true }
-wrym_webtransport = { path = "crates/wrym_webtransport", optional = true }
+wrym_transport = { path = "crates/wrym_transport", version = "0.1.0" }
+wrym_tcp = { path = "crates/wrym_tcp", optional = true, version = "0.1.0"  }
+wrym_udp = { path = "crates/wrym_udp", optional = true, version = "0.1.0"  }
+wrym_laminar = { path = "crates/wrym_laminar", optional = true, version = "0.1.0" }
 
 [dev-dependencies]
 bincode = "1.3.3"
@@ -26,4 +31,3 @@ default = ["tcp"]
 tcp = ["dep:wrym_tcp"]
 udp = ["dep:wrym_udp"]
 laminar = ["dep:wrym_laminar"]
-webtransport = ["dep:wrym_webtransport"]

@@ -13,13 +13,6 @@ pub mod transport {
             pub use wrym_udp::UdpTransport as Transport;
         } else if #[cfg(feature = "laminar")] {
             pub use wrym_laminar::LaminarTransport as Transport;
-        } else if #[cfg(feature = "webtransport")] {
-            pub mod server {
-                pub use wrym_webtransport::server::WebTransport as Transport;
-            }
-            pub mod client {
-                pub use wrym_webtransport::client::WebTransport as Transport;
-            }
         }
     }
 }
