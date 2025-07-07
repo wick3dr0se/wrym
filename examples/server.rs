@@ -19,15 +19,20 @@ fn main() {
 
         while let Some(event) = server.recv_event() {
             match event {
-                ServerEvent::ClientConnected(addr) => {
-                    println!("New connection from client {}", addr);
+                ServerEvent::ClientConnected(id) => {
+                    println!(
+                        "New connection from client {} ({})",
+                        id,
+                        server.client_addr(id).unwrap()
+                    );
                 }
-                ServerEvent::ClientDisconnected(addr) => {
-                    println!("Lost connection from client {}", addr);
+                ServerEvent::ClientDisconnected(id) => {
+                    println!("Lost connection from client {}", id);
                 }
-                ServerEvent::MessageReceived(addr, bytes) => {
+                ServerEvent::MessageReceived(id, bytes) => {
+                    let addr = server.client_addr(id).unwrap();
                     let msg = deserialize::<String>(&bytes).unwrap();
-                    println!("Message received from client {}: {:?}", addr, msg);
+                    println!("Message received from client {} ({}): {:?}", id, addr, msg);
 
                     server.broadcast(
                         &serialize(&format!("Received '{}' from client {}", msg, addr)).unwrap(),

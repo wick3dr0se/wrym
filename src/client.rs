@@ -5,7 +5,7 @@ use wrym_transport::{ReliableTransport, Transport};
 use crate::Opcode;
 
 pub enum ClientEvent {
-    Connected,
+    Connected(u32),
     Disconnected,
     MessageReceived(Vec<u8>),
 }
@@ -13,6 +13,7 @@ pub enum ClientEvent {
 pub struct Client<T: Transport> {
     transport: T,
     server_addr: String,
+    id: Option<u32>,
     events: VecDeque<ClientEvent>,
 }
 
@@ -21,6 +22,7 @@ impl<T: Transport> Client<T> {
         let client = Self {
             transport,
             server_addr: server_addr.to_string(),
+            id: None,
             events: VecDeque::new(),
         };
 
@@ -31,6 +33,10 @@ impl<T: Transport> Client<T> {
         client
     }
 
+    pub fn id(&self) -> Option<u32> {
+        self.id
+    }
+
     pub fn poll(&mut self) {
         if let Some((_addr, mut bytes)) = self.transport.recv() {
             if bytes.is_empty() {
@@ -39,7 +45,12 @@ impl<T: Transport> Client<T> {
 
             match bytes.remove(0).into() {
                 Opcode::ClientConnected => {
-                    self.events.push_back(ClientEvent::Connected);
+                    if bytes.len() >= 4 {
+                        let id = u32::from_le_bytes(bytes[..4].try_into().unwrap());
+                        self.id = Some(id);
+
+                        self.events.push_back(ClientEvent::Connected(id));
+                    }
                 }
                 Opcode::ClientDisconnected => {
                     self.events.push_back(ClientEvent::Disconnected);

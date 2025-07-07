@@ -20,7 +20,7 @@ fn main() {
 
         while let Some(event) = client.recv_event() {
             match event {
-                ClientEvent::Connected => {
+                ClientEvent::Connected(_id) => {
                     println!("Server {} acknowledged our connection!", SERVER_ADDR);
 
                     client.send(&serialize("Hello").unwrap());

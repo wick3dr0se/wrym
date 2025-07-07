@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, VecDeque},
+    sync::atomic::{AtomicU32, Ordering},
     time::{Duration, Instant},
 };
 
@@ -20,13 +21,14 @@ impl Default for ServerConfig {
 }
 
 pub struct ClientData {
+    id: u32,
     last_activity: Instant,
 }
 
 pub enum ServerEvent {
-    ClientConnected(String),
-    ClientDisconnected(String),
-    MessageReceived(String, Vec<u8>),
+    ClientConnected(u32),
+    ClientDisconnected(u32),
+    MessageReceived(u32, Vec<u8>),
 }
 
 pub struct Server<T: Transport> {
@@ -46,30 +48,48 @@ impl<T: Transport> Server<T> {
         }
     }
 
+    fn next_id(&self) -> u32 {
+        static COUNTER: AtomicU32 = AtomicU32::new(1);
+        COUNTER.fetch_add(1, Ordering::Relaxed)
+    }
+
+    pub fn client_id(&self, addr: &str) -> Option<u32> {
+        self.clients.get(addr).map(|c| c.id)
+    }
+
+    pub fn client_addr(&self, id: u32) -> Option<&String> {
+        self.clients
+            .iter()
+            .find(|(_, c)| c.id == id)
+            .map(|(addr, _)| addr)
+    }
+
     fn add_client(&mut self, addr: &str) {
-        if self
-            .clients
-            .insert(
-                addr.to_string(),
-                ClientData {
-                    last_activity: Instant::now(),
-                },
-            )
-            .is_none()
-        {
-            self.transport
-                .send_to(&addr, &[Opcode::ClientConnected as u8]);
-            self.events
-                .push_back(ServerEvent::ClientConnected(addr.to_string()));
+        if self.clients.contains_key(addr) {
+            return;
         }
+
+        let id = self.next_id();
+
+        self.clients.insert(
+            addr.to_string(),
+            ClientData {
+                id,
+                last_activity: Instant::now(),
+            },
+        );
+
+        self.transport
+            .send_to(addr, &Opcode::ClientConnected.with_bytes(&id.to_le_bytes()));
+        self.events.push_back(ServerEvent::ClientConnected(id));
     }
 
     fn drop_client(&mut self, addr: &str) {
-        if self.clients.remove(addr).is_some() {
-            self.transport
-                .send_to(&addr, &[Opcode::ClientDisconnected as u8]);
+        if let Some(data) = self.clients.remove(addr) {
             self.events
-                .push_back(ServerEvent::ClientDisconnected(addr.to_string()));
+                .push_back(ServerEvent::ClientDisconnected(data.id));
+            self.transport
+                .send_to(addr, &[Opcode::ClientDisconnected as u8]);
         }
     }
 
@@ -107,8 +127,10 @@ impl<T: Transport> Server<T> {
                 Opcode::ClientConnected => self.add_client(&addr),
                 Opcode::ClientDisconnected => self.drop_client(&addr),
                 Opcode::Message => {
-                    self.events
-                        .push_back(ServerEvent::MessageReceived(addr, bytes));
+                    if let Some(client) = self.clients.get(&addr) {
+                        self.events
+                            .push_back(ServerEvent::MessageReceived(client.id, bytes));
+                    }
                 }
             }
         }
