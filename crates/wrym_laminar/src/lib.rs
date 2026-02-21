@@ -10,25 +10,17 @@ pub struct LaminarTransport {
 impl LaminarTransport {
     pub fn new(bind_addr: &str) -> Self {
         let socket = RefCell::new(Socket::bind(bind_addr).unwrap());
-
         Self { socket }
     }
 }
 
 impl Transport for LaminarTransport {
-    fn send_to(&self, addr: &str, bytes: &[u8]) {
-        let addr = addr.parse().unwrap();
-        let packet = Packet::unreliable(addr, bytes.to_vec());
-
-        self.socket.borrow_mut().send(packet).unwrap();
+    fn poll(&mut self) {
+        self.socket.borrow_mut().manual_poll(Instant::now());
     }
 
     fn recv(&mut self) -> Option<(String, Vec<u8>)> {
-        let mut socket = self.socket.borrow_mut();
-
-        socket.manual_poll(Instant::now());
-
-        if let Some(event) = socket.recv() {
+        if let Some(event) = self.socket.borrow_mut().recv() {
             if let SocketEvent::Packet(packet) = event {
                 return Some((packet.addr().to_string(), packet.payload().to_vec()));
             }
@@ -36,17 +28,20 @@ impl Transport for LaminarTransport {
 
         None
     }
+
+    fn send_to(&self, addr: &str, bytes: &[u8]) {
+        let packet = Packet::unreliable(addr.parse().unwrap(), bytes.to_vec());
+        self.socket.borrow_mut().send(packet).unwrap();
+    }
 }
 
 impl ReliableTransport for LaminarTransport {
-    fn send_reliable_to(&self, addr: &str, bytes: &[u8], ordered: bool) {
+    fn send_reliable_to(&self, addr: &str, bytes: &[u8], channel: Option<u8>) {
         let addr = addr.parse().unwrap();
-        let packet = if ordered {
-            Packet::reliable_ordered(addr, bytes.to_vec(), None)
-        } else {
-            Packet::reliable_unordered(addr, bytes.to_vec())
+        let packet = match channel {
+            Some(ch) => Packet::reliable_ordered(addr, bytes.to_vec(), Some(ch)),
+            None => Packet::reliable_unordered(addr, bytes.to_vec()),
         };
-
         self.socket.borrow_mut().send(packet).unwrap();
     }
 }

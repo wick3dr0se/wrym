@@ -112,9 +112,10 @@ impl<T: Transport> Server<T> {
     }
 
     pub fn poll(&mut self) {
+        self.transport.poll();
         self.drop_inactive_clients(self.config.client_timeout);
 
-        if let Some((addr, mut bytes)) = self.transport.recv() {
+        while let Some((addr, mut bytes)) = self.transport.recv() {
             if bytes.is_empty() {
                 return;
             }
@@ -155,16 +156,16 @@ impl<T: Transport> Server<T> {
 }
 
 impl<T: Transport + ReliableTransport> Server<T> {
-    pub fn send_reliable_to(&self, addr: &str, bytes: &[u8], ordered: bool) {
+    pub fn send_reliable_to(&self, addr: &str, bytes: &[u8], channel: Option<u8>) {
         self.transport
-            .send_reliable_to(addr, &Opcode::Message.with_bytes(bytes), ordered);
+            .send_reliable_to(addr, &Opcode::Message.with_bytes(bytes), channel);
     }
 
-    pub fn broadcast_reliable(&self, bytes: &[u8], ordered: bool) {
+    pub fn broadcast_reliable(&self, bytes: &[u8], channel: Option<u8>) {
         let msg = Opcode::Message.with_bytes(bytes);
 
         for addr in self.clients.keys() {
-            self.transport.send_reliable_to(addr, &msg, ordered)
+            self.transport.send_reliable_to(addr, &msg, channel)
         }
     }
 }

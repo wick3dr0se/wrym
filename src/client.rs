@@ -38,7 +38,8 @@ impl<T: Transport> Client<T> {
     }
 
     pub fn poll(&mut self) {
-        if let Some((_addr, mut bytes)) = self.transport.recv() {
+        self.transport.poll();
+        while let Some((_addr, mut bytes)) = self.transport.recv() {
             if bytes.is_empty() {
                 return;
             }
@@ -78,11 +79,11 @@ impl<T: Transport> Client<T> {
 }
 
 impl<T: Transport + ReliableTransport> Client<T> {
-    pub fn send_reliable(&self, bytes: &[u8], ordered: bool) {
+    pub fn send_reliable(&self, bytes: &[u8], channel: Option<u8>) {
         self.transport.send_reliable_to(
             &self.server_addr,
             &Opcode::Message.with_bytes(bytes),
-            ordered,
+            channel,
         );
     }
 }
