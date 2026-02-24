@@ -1,21 +1,6 @@
 pub mod client;
 pub mod server;
-pub mod transport {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "tcp")] {
-            pub mod server {
-                pub use wrym_tcp::server::TcpTransport as Transport;
-            }
-            pub mod client {
-                pub use wrym_tcp::client::TcpTransport as Transport;
-            }
-        } else if #[cfg(feature = "udp")] {
-            pub use wrym_udp::UdpTransport as Transport;
-        } else if #[cfg(feature = "laminar")] {
-            pub use wrym_laminar::LaminarTransport as Transport;
-        }
-    }
-}
+pub use wrym_transport::Reliability;
 
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Opcode {

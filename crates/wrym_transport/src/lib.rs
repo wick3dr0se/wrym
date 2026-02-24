@@ -1,3 +1,4 @@
+#[derive(Copy, Clone)]
 pub enum Reliability {
     Unreliable,
     ReliableUnordered,
@@ -7,9 +8,5 @@ pub enum Reliability {
 pub trait Transport {
     fn poll(&mut self) {}
     fn recv(&mut self) -> Option<(String, Vec<u8>)>;
-    fn send_to(&self, addr: &str, bytes: &[u8]);
-}
-
-pub trait ReliableTransport {
-    fn send_reliable_to(&self, addr: &str, bytes: &[u8], channel: Option<u8>);
+    fn send_to(&self, addr: &str, bytes: &[u8], reliability: Reliability);
 }

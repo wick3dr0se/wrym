@@ -1,8 +1,15 @@
 use std::collections::VecDeque;
 
-use wrym_transport::{ReliableTransport, Transport};
+use wrym_transport::{Reliability, Transport as ClientTransport};
 
 use crate::Opcode;
+
+#[cfg(feature = "laminar")]
+pub use wrym_laminar::LaminarTransport as Transport;
+#[cfg(feature = "tcp")]
+pub use wrym_tcp::client::TcpTransport as Transport;
+#[cfg(feature = "udp")]
+pub use wrym_udp::UdpTransport as Transport;
 
 pub enum ClientEvent {
     Connected(u32),
@@ -10,14 +17,14 @@ pub enum ClientEvent {
     MessageReceived(Vec<u8>),
 }
 
-pub struct Client<T: Transport> {
+pub struct Client<T: ClientTransport> {
     transport: T,
     server_addr: String,
     id: Option<u32>,
     events: VecDeque<ClientEvent>,
 }
 
-impl<T: Transport> Client<T> {
+impl<T: ClientTransport> Client<T> {
     pub fn new(transport: T, server_addr: &str) -> Self {
         let client = Self {
             transport,
@@ -26,9 +33,11 @@ impl<T: Transport> Client<T> {
             events: VecDeque::new(),
         };
 
-        client
-            .transport
-            .send_to(server_addr, &[Opcode::ClientConnected as u8]);
+        client.transport.send_to(
+            server_addr,
+            &[Opcode::ClientConnected as u8],
+            Reliability::ReliableOrdered { channel: 0 },
+        );
 
         client
     }
@@ -67,28 +76,24 @@ impl<T: Transport> Client<T> {
         self.events.pop_front()
     }
 
-    pub fn send(&self, bytes: &[u8]) {
-        self.transport
-            .send_to(&self.server_addr, &Opcode::Message.with_bytes(bytes));
+    pub fn send(&self, bytes: &[u8], reliability: Reliability) {
+        self.transport.send_to(
+            &self.server_addr,
+            &Opcode::Message.with_bytes(bytes),
+            reliability,
+        );
     }
 
     pub fn disconnect(&self) {
-        self.transport
-            .send_to(&self.server_addr, &[Opcode::ClientDisconnected as u8]);
-    }
-}
-
-impl<T: Transport + ReliableTransport> Client<T> {
-    pub fn send_reliable(&self, bytes: &[u8], channel: Option<u8>) {
-        self.transport.send_reliable_to(
+        self.transport.send_to(
             &self.server_addr,
-            &Opcode::Message.with_bytes(bytes),
-            channel,
+            &[Opcode::ClientDisconnected as u8],
+            Reliability::ReliableOrdered { channel: 0 },
         );
     }
 }
 
-impl<T: Transport> Drop for Client<T> {
+impl<T: ClientTransport> Drop for Client<T> {
     fn drop(&mut self) {
         self.disconnect();
     }

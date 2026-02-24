@@ -4,9 +4,16 @@ use std::{
     time::{Duration, Instant},
 };
 
-use wrym_transport::{ReliableTransport, Transport};
+use wrym_transport::{Reliability, Transport as ServerTransport};
 
 use crate::Opcode;
+
+#[cfg(feature = "laminar")]
+pub use wrym_laminar::LaminarTransport as Transport;
+#[cfg(feature = "tcp")]
+pub use wrym_tcp::server::TcpTransport as Transport;
+#[cfg(feature = "udp")]
+pub use wrym_udp::UdpTransport as Transport;
 
 pub struct ServerConfig {
     pub client_timeout: Duration,
@@ -31,14 +38,14 @@ pub enum ServerEvent {
     MessageReceived(u32, Vec<u8>),
 }
 
-pub struct Server<T: Transport> {
+pub struct Server<T: ServerTransport> {
     transport: T,
     config: ServerConfig,
     clients: HashMap<String, ClientData>,
     events: VecDeque<ServerEvent>,
 }
 
-impl<T: Transport> Server<T> {
+impl<T: ServerTransport> Server<T> {
     pub fn new(transport: T, config: ServerConfig) -> Self {
         Self {
             transport,
@@ -79,8 +86,11 @@ impl<T: Transport> Server<T> {
             },
         );
 
-        self.transport
-            .send_to(addr, &Opcode::ClientConnected.with_bytes(&id.to_le_bytes()));
+        self.transport.send_to(
+            addr,
+            &Opcode::ClientConnected.with_bytes(&id.to_le_bytes()),
+            Reliability::ReliableOrdered { channel: 0 },
+        );
         self.events.push_back(ServerEvent::ClientConnected(id));
     }
 
@@ -88,8 +98,11 @@ impl<T: Transport> Server<T> {
         if let Some(data) = self.clients.remove(addr) {
             self.events
                 .push_back(ServerEvent::ClientDisconnected(data.id));
-            self.transport
-                .send_to(addr, &[Opcode::ClientDisconnected as u8]);
+            self.transport.send_to(
+                addr,
+                &[Opcode::ClientDisconnected as u8],
+                Reliability::ReliableOrdered { channel: 0 },
+            );
         }
     }
 
@@ -141,31 +154,16 @@ impl<T: Transport> Server<T> {
         self.events.pop_front()
     }
 
-    pub fn send_to(&self, addr: &str, bytes: &[u8]) {
+    pub fn send_to(&self, addr: &str, bytes: &[u8], reliablity: Reliability) {
         self.transport
-            .send_to(addr, &Opcode::Message.with_bytes(bytes));
+            .send_to(addr, &Opcode::Message.with_bytes(bytes), reliablity);
     }
 
-    pub fn broadcast(&self, bytes: &[u8]) {
+    pub fn broadcast(&self, bytes: &[u8], reliability: Reliability) {
         let msg = Opcode::Message.with_bytes(bytes);
 
         for addr in self.clients.keys() {
-            self.transport.send_to(addr, &msg);
-        }
-    }
-}
-
-impl<T: Transport + ReliableTransport> Server<T> {
-    pub fn send_reliable_to(&self, addr: &str, bytes: &[u8], channel: Option<u8>) {
-        self.transport
-            .send_reliable_to(addr, &Opcode::Message.with_bytes(bytes), channel);
-    }
-
-    pub fn broadcast_reliable(&self, bytes: &[u8], channel: Option<u8>) {
-        let msg = Opcode::Message.with_bytes(bytes);
-
-        for addr in self.clients.keys() {
-            self.transport.send_reliable_to(addr, &msg, channel)
+            self.transport.send_to(addr, &msg, reliability);
         }
     }
 }

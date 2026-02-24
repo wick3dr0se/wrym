@@ -2,8 +2,8 @@ use std::{thread::sleep, time::Duration};
 
 use bincode::{deserialize, serialize};
 use wrym::{
-    server::{Server, ServerConfig, ServerEvent},
-    transport::server::Transport,
+    Reliability,
+    server::{Server, ServerConfig, ServerEvent, Transport},
 };
 
 const SERVER_ADDR: &str = "127.0.0.1:8080";
@@ -36,6 +36,7 @@ fn main() {
 
                     server.broadcast(
                         &serialize(&format!("Received '{}' from client {}", msg, addr)).unwrap(),
+                        Reliability::Unreliable,
                     );
                 }
             }

@@ -2,8 +2,8 @@ use std::{process::exit, thread::sleep, time::Duration};
 
 use bincode::{deserialize, serialize};
 use wrym::{
-    client::{Client, ClientEvent},
-    transport::client::Transport,
+    Reliability,
+    client::{Client, ClientEvent, Transport},
 };
 
 const SERVER_ADDR: &str = "127.0.0.1:8080";
@@ -23,7 +23,10 @@ fn main() {
                 ClientEvent::Connected(_id) => {
                     println!("Server {} acknowledged our connection!", SERVER_ADDR);
 
-                    client.send(&serialize("Hello").unwrap());
+                    client.send(
+                        &serialize("Hello").unwrap(),
+                        Reliability::ReliableOrdered { channel: 0 },
+                    );
                 }
                 ClientEvent::Disconnected => {
                     println!("Lost connection to server {}", SERVER_ADDR);

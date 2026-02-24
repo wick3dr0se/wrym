@@ -1,7 +1,7 @@
 use std::{cell::RefCell, time::Instant};
 
 use laminar::{Packet, Socket, SocketEvent};
-use wrym_transport::{ReliableTransport, Transport};
+use wrym_transport::{Reliability, Transport};
 
 pub struct LaminarTransport {
     socket: RefCell<Socket>,
@@ -29,18 +29,14 @@ impl Transport for LaminarTransport {
         None
     }
 
-    fn send_to(&self, addr: &str, bytes: &[u8]) {
-        let packet = Packet::unreliable(addr.parse().unwrap(), bytes.to_vec());
-        self.socket.borrow_mut().send(packet).unwrap();
-    }
-}
-
-impl ReliableTransport for LaminarTransport {
-    fn send_reliable_to(&self, addr: &str, bytes: &[u8], channel: Option<u8>) {
+    fn send_to(&self, addr: &str, bytes: &[u8], reliability: Reliability) {
         let addr = addr.parse().unwrap();
-        let packet = match channel {
-            Some(ch) => Packet::reliable_ordered(addr, bytes.to_vec(), Some(ch)),
-            None => Packet::reliable_unordered(addr, bytes.to_vec()),
+        let packet = match reliability {
+            Reliability::Unreliable => Packet::unreliable(addr, bytes.to_vec()),
+            Reliability::ReliableUnordered => Packet::reliable_unordered(addr, bytes.to_vec()),
+            Reliability::ReliableOrdered { channel } => {
+                Packet::reliable_ordered(addr, bytes.to_vec(), Some(channel))
+            }
         };
         self.socket.borrow_mut().send(packet).unwrap();
     }
