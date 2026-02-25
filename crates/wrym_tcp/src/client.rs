@@ -7,28 +7,39 @@ use wrym_transport::{Reliability, Transport};
 pub struct TcpTransport {
     stream: RefCell<TcpStream>,
     read_buffer: Vec<u8>,
+    disconnected: RefCell<bool>,
 }
 
 impl TcpTransport {
     pub fn new(addr: &str) -> Self {
-        let stream = TcpStream::connect(addr).unwrap();
-        stream.set_nonblocking(true).unwrap();
+        let stream = TcpStream::connect(addr).expect("Failed to connect to server");
+        let _ = stream.set_nonblocking(true);
 
         Self {
             stream: RefCell::new(stream),
             read_buffer: Vec::new(),
+            disconnected: RefCell::new(false),
         }
     }
 }
 
 impl Transport for TcpTransport {
     fn recv(&mut self) -> Option<(String, Vec<u8>)> {
+        if *self.disconnected.borrow() {
+            return None;
+        }
+
         let mut stream = self.stream.borrow_mut();
         let mut temp = [0u8; 1024];
 
-        if let Ok(n) = stream.read(&mut temp) {
-            if n > 0 {
+        match stream.read(&mut temp) {
+            Ok(n) => {
                 self.read_buffer.extend_from_slice(&temp[..n]);
+            }
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(_) => {
+                *self.disconnected.borrow_mut() = true;
+                return Some(("server".into(), Vec::new()));
             }
         }
 
@@ -50,13 +61,23 @@ impl Transport for TcpTransport {
         let payload = self.read_buffer[4..4 + len].to_vec();
         self.read_buffer.drain(..4 + len);
 
-        Some((stream.peer_addr().unwrap().to_string(), payload))
+        Some(("server".into(), payload))
     }
 
-    fn send_to(&self, _addr: &str, bytes: &[u8], _reliability: Reliability) {
+    fn send_to(&self, _addr: &str, bytes: &[u8], _reliability: Reliability) -> std::io::Result<()> {
+        if *self.disconnected.borrow() {
+            return Err(std::io::ErrorKind::NotConnected.into());
+        }
         let mut stream = self.stream.borrow_mut();
         let len = (bytes.len() as u32).to_be_bytes();
-        stream.write_all(&len).unwrap();
-        stream.write_all(bytes).unwrap();
+        stream.write_all(&len).or_else(|e| {
+            *self.disconnected.borrow_mut() = true;
+            Err(e)
+        })?;
+        stream.write_all(bytes).or_else(|e| {
+            *self.disconnected.borrow_mut() = true;
+            Err(e)
+        })?;
+        Ok(())
     }
 }

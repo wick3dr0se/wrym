@@ -86,7 +86,7 @@ impl<T: ServerTransport> Server<T> {
             },
         );
 
-        self.transport.send_to(
+        let _ = self.transport.send_to(
             addr,
             &Opcode::ClientConnected.with_bytes(&id.to_le_bytes()),
             Reliability::ReliableOrdered { channel: 0 },
@@ -98,7 +98,7 @@ impl<T: ServerTransport> Server<T> {
         if let Some(data) = self.clients.remove(addr) {
             self.events
                 .push_back(ServerEvent::ClientDisconnected(data.id));
-            self.transport.send_to(
+            let _ = self.transport.send_to(
                 addr,
                 &[Opcode::ClientDisconnected as u8],
                 Reliability::ReliableOrdered { channel: 0 },
@@ -130,7 +130,8 @@ impl<T: ServerTransport> Server<T> {
 
         while let Some((addr, mut bytes)) = self.transport.recv() {
             if bytes.is_empty() {
-                return;
+                self.drop_client(&addr);
+                continue;
             }
 
             if let Some(data) = self.clients.get_mut(&addr) {
@@ -154,16 +155,29 @@ impl<T: ServerTransport> Server<T> {
         self.events.pop_front()
     }
 
-    pub fn send_to(&self, addr: &str, bytes: &[u8], reliablity: Reliability) {
-        self.transport
-            .send_to(addr, &Opcode::Message.with_bytes(bytes), reliablity);
+    pub fn send_to(&mut self, addr: &str, bytes: &[u8], reliability: Reliability) {
+        if self
+            .transport
+            .send_to(addr, &Opcode::Message.with_bytes(bytes), reliability)
+            .is_err()
+        {
+            self.drop_client(addr);
+        }
     }
 
-    pub fn broadcast(&self, bytes: &[u8], reliability: Reliability) {
-        let msg = Opcode::Message.with_bytes(bytes);
-
+    pub fn broadcast(&mut self, bytes: &[u8], reliability: Reliability) {
+        let mut dead = Vec::new();
         for addr in self.clients.keys() {
-            self.transport.send_to(addr, &msg, reliability);
+            if self
+                .transport
+                .send_to(addr, &Opcode::Message.with_bytes(bytes), reliability)
+                .is_err()
+            {
+                dead.push(addr.clone());
+            }
+        }
+        for addr in dead {
+            self.drop_client(&addr);
         }
     }
 }

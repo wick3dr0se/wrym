@@ -33,7 +33,7 @@ impl<T: ClientTransport> Client<T> {
             events: VecDeque::new(),
         };
 
-        client.transport.send_to(
+        let _ = client.transport.send_to(
             server_addr,
             &[Opcode::ClientConnected as u8],
             Reliability::ReliableOrdered { channel: 0 },
@@ -50,7 +50,8 @@ impl<T: ClientTransport> Client<T> {
         self.transport.poll();
         while let Some((_addr, mut bytes)) = self.transport.recv() {
             if bytes.is_empty() {
-                return;
+                self.events.push_back(ClientEvent::Disconnected);
+                break;
             }
 
             match bytes.remove(0).into() {
@@ -76,16 +77,22 @@ impl<T: ClientTransport> Client<T> {
         self.events.pop_front()
     }
 
-    pub fn send(&self, bytes: &[u8], reliability: Reliability) {
-        self.transport.send_to(
-            &self.server_addr,
-            &Opcode::Message.with_bytes(bytes),
-            reliability,
-        );
+    pub fn send(&mut self, bytes: &[u8], reliability: Reliability) {
+        if self
+            .transport
+            .send_to(
+                &self.server_addr,
+                &Opcode::Message.with_bytes(bytes),
+                reliability,
+            )
+            .is_err()
+        {
+            self.events.push_back(ClientEvent::Disconnected);
+        }
     }
 
     pub fn disconnect(&self) {
-        self.transport.send_to(
+        let _ = self.transport.send_to(
             &self.server_addr,
             &[Opcode::ClientDisconnected as u8],
             Reliability::ReliableOrdered { channel: 0 },

@@ -29,7 +29,7 @@ impl Transport for LaminarTransport {
         None
     }
 
-    fn send_to(&self, addr: &str, bytes: &[u8], reliability: Reliability) {
+    fn send_to(&self, addr: &str, bytes: &[u8], reliability: Reliability) -> std::io::Result<()> {
         let addr = addr.parse().unwrap();
         let packet = match reliability {
             Reliability::Unreliable => Packet::unreliable(addr, bytes.to_vec()),
@@ -38,6 +38,7 @@ impl Transport for LaminarTransport {
                 Packet::reliable_ordered(addr, bytes.to_vec(), Some(channel))
             }
         };
-        self.socket.borrow_mut().send(packet).unwrap();
+        self.socket.borrow_mut().send(packet).ok();
+        Ok(())
     }
 }
